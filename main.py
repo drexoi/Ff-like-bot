@@ -3,7 +3,12 @@ import json
 import time
 import requests
 import telebot
-from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
+from telebot.types import (
+    ReplyKeyboardMarkup,
+    KeyboardButton,
+    InlineKeyboardMarkup,
+    InlineKeyboardButton
+)
 
 BOT_TOKEN = "8822768029:AAF1UoUMhrqtbm36EVkKC1vV1qyn8vgRAFo"
 ADMIN_ID = 8671410379
@@ -81,16 +86,18 @@ def force_join_markup():
     markup.add(InlineKeyboardButton(text="✅ Joined / Verify", callback_data="verify_join"))
     return markup
 
-def main_menu_markup():
-    markup = InlineKeyboardMarkup(row_width=2)
-    b1 = InlineKeyboardButton(text="👍 Get Likes", callback_data="btn_get_likes")
-    b2 = InlineKeyboardButton(text="💳 Buy Credits", callback_data="btn_buy_credits")
-    b3 = InlineKeyboardButton(text="💰 My Balance", callback_data="btn_balance")
-    b4 = InlineKeyboardButton(text="🔗 Invite & Earn", callback_data="btn_refer")
-    b5 = InlineKeyboardButton(text="🎁 Redeem Code", callback_data="btn_redeem")
+def user_keyboard(user_id):
+    markup = ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
+    b1 = KeyboardButton("👍 Get Likes")
+    b2 = KeyboardButton("💳 Buy Credits")
+    b3 = KeyboardButton("💰 My Balance")
+    b4 = KeyboardButton("🔗 Invite & Earn")
+    b5 = KeyboardButton("🎁 Redeem Code")
     markup.add(b1)
     markup.add(b2, b3)
     markup.add(b4, b5)
+    if user_id == ADMIN_ID:
+        markup.add(KeyboardButton("👑 Admin Panel"), KeyboardButton("📜 All Commands"))
     return markup
 
 def send_like_request(account, target_uid):
@@ -175,9 +182,9 @@ def complete_verification(user_id, chat_id):
         f"⚡ *Loaded Bot Nodes:* `{len(BOT_ACCOUNTS)}`\n"
         f"💰 *Your Balance:* `{user_info['credits']} Credits`\n"
         f"📊 *Rate:* `1 Credit = 3 Likes`\n\n"
-        "Select an option below to proceed:"
+        "Use the buttons below to proceed:"
     )
-    bot.send_message(chat_id, text, reply_markup=main_menu_markup(), parse_mode="Markdown")
+    bot.send_message(chat_id, text, reply_markup=user_keyboard(user_id), parse_mode="Markdown")
 
 @bot.callback_query_handler(func=lambda call: call.data == "verify_join")
 def verify_callback(call):
@@ -192,46 +199,42 @@ def verify_callback(call):
     else:
         bot.answer_callback_query(call.id, "❌ Please join all channels before verifying!", show_alert=True)
 
-@bot.callback_query_handler(func=lambda call: call.data == "btn_balance")
-def balance_callback(call):
-    user_id = str(call.from_user.id)
+@bot.message_handler(func=lambda m: m.text == "💰 My Balance")
+def handle_balance_btn(message):
+    user_id = str(message.from_user.id)
     data = load_data()
     credits_amt = data["users"].get(user_id, {}).get("credits", 0)
-    bot.answer_callback_query(call.id)
     text = (
         f"💳 *Your Account Balance*\n\n"
         f"Available Credits: *{credits_amt}*\n"
         f"Available Likes: *{credits_amt * 3} Likes*"
     )
-    bot.send_message(call.message.chat.id, text, parse_mode="Markdown")
+    bot.send_message(message.chat.id, text, parse_mode="Markdown")
 
-@bot.callback_query_handler(func=lambda call: call.data == "btn_refer")
-def refer_callback(call):
-    user_id = call.from_user.id
+@bot.message_handler(func=lambda m: m.text == "🔗 Invite & Earn")
+def handle_refer_btn(message):
+    user_id = message.from_user.id
     bot_info = bot.get_me()
     ref_link = f"https://t.me/{bot_info.username}?start=ref_{user_id}"
-    bot.answer_callback_query(call.id)
     text = (
         "🔗 *Invite & Earn Free Credits*\n\n"
         "Share your referral link with friends. When they start the bot and join all 4 channels, you will get *10 Credits* instantly!\n\n"
         f"Your Referral Link:\n`{ref_link}`"
     )
-    bot.send_message(call.message.chat.id, text, parse_mode="Markdown")
+    bot.send_message(message.chat.id, text, parse_mode="Markdown")
 
-@bot.callback_query_handler(func=lambda call: call.data == "btn_redeem")
-def redeem_callback(call):
-    bot.answer_callback_query(call.id)
-    USER_STEPS[call.from_user.id] = {"step": "awaiting_redeem_code"}
-    bot.send_message(call.message.chat.id, "🎁 Please send your Redeem Code:")
+@bot.message_handler(func=lambda m: m.text == "🎁 Redeem Code")
+def handle_redeem_btn(message):
+    USER_STEPS[message.from_user.id] = {"step": "awaiting_redeem_code"}
+    bot.send_message(message.chat.id, "🎁 Please send your Redeem Code:")
 
-@bot.callback_query_handler(func=lambda call: call.data == "btn_buy_credits")
-def buy_callback(call):
-    bot.answer_callback_query(call.id)
+@bot.message_handler(func=lambda m: m.text == "💳 Buy Credits")
+def handle_buy_btn(message):
     markup = InlineKeyboardMarkup()
     for key, val in PACKS.items():
         btn_text = f"₹{val['price']} ➔ {val['credits']} Credits ({val['likes']} Likes)"
         markup.add(InlineKeyboardButton(text=btn_text, callback_data=f"buy_{key}"))
-    bot.send_message(call.message.chat.id, "🛒 *Select a Credit Pack:*", reply_markup=markup, parse_mode="Markdown")
+    bot.send_message(message.chat.id, "🛒 *Select a Credit Pack:*", reply_markup=markup, parse_mode="Markdown")
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("buy_pack_"))
 def buy_pack_select(call):
@@ -268,23 +271,61 @@ def buy_pack_select(call):
     except Exception:
         bot.send_message(call.message.chat.id, caption, parse_mode="Markdown")
 
-@bot.callback_query_handler(func=lambda call: call.data == "btn_get_likes")
-def get_likes_callback(call):
-    user_id = call.from_user.id
+@bot.message_handler(func=lambda m: m.text == "👍 Get Likes")
+def handle_get_likes_btn(message):
+    user_id = message.from_user.id
     if not check_force_join(user_id):
-        bot.answer_callback_query(call.id, "Please join all channels first!", show_alert=True)
-        bot.send_message(call.message.chat.id, "Join our channels:", reply_markup=force_join_markup())
+        bot.send_message(message.chat.id, "⚠️ Please join all channels first:", reply_markup=force_join_markup())
         return
 
-    bot.answer_callback_query(call.id)
     USER_STEPS[user_id] = {"step": "awaiting_uid"}
-    bot.send_message(call.message.chat.id, "🎯 Please enter your Free Fire Player UID:")
+    bot.send_message(message.chat.id, "🎯 Please enter your Free Fire Player UID:")
+
+@bot.message_handler(func=lambda m: m.text in ["👑 Admin Panel", "📜 All Commands", "/all"])
+def handle_all_commands(message):
+    if message.from_user.id != ADMIN_ID:
+        return
+    help_text = (
+        "👑 *All Admin Commands:*\n\n"
+        "1. `/gen <CODE> <CREDITS> <USERS>` - Generate redeem code\n"
+        "2. `/addcredit <USER_ID> <AMOUNT>` - Add credits to a user\n"
+        "3. `/remcredit <USER_ID> <AMOUNT>` - Remove credits from a user\n"
+        "4. `/allp` - Broadcast text/photo/video in exact format\n"
+        "5. `/stats` - View bot statistics\n"
+        "6. `/reload` - Reload accounts from JSON files"
+    )
+    bot.send_message(message.chat.id, help_text, parse_mode="Markdown")
+
+@bot.message_handler(commands=['allp'])
+def handle_allp_command(message):
+    if message.from_user.id != ADMIN_ID:
+        return
+    USER_STEPS[ADMIN_ID] = {"step": "awaiting_allp_broadcast"}
+    bot.send_message(
+        message.chat.id,
+        "📢 *Send your broadcast content now.*\n(You can send plain text, photo, video, or document with caption):",
+        parse_mode="Markdown"
+    )
+
+@bot.message_handler(commands=['reload'])
+def handle_reload(message):
+    if message.from_user.id != ADMIN_ID:
+        return
+    global BOT_ACCOUNTS
+    BOT_ACCOUNTS = load_all_accounts()
+    bot.reply_to(message, f"✅ Reloaded! Active Bot Accounts: `{len(BOT_ACCOUNTS)}`", parse_mode="Markdown")
 
 @bot.message_handler(content_types=['photo'])
-def handle_payment_screenshot(message):
+def handle_photos(message):
     user_id = message.from_user.id
-    pending = PENDING_PAYMENTS.get(user_id)
+    step_info = USER_STEPS.get(user_id)
 
+    if user_id == ADMIN_ID and step_info and step_info.get("step") == "awaiting_allp_broadcast":
+        del USER_STEPS[ADMIN_ID]
+        broadcast_copy(message)
+        return
+
+    pending = PENDING_PAYMENTS.get(user_id)
     if pending and pending.get("awaiting_proof"):
         file_id = message.photo[-1].file_id
         price = pending["price"]
@@ -305,6 +346,39 @@ def handle_payment_screenshot(message):
         bot.send_photo(ADMIN_ID, file_id, caption=admin_caption, reply_markup=admin_markup, parse_mode="Markdown")
         bot.reply_to(message, "✅ Screenshot submitted to admin for verification. Your credits will be added once approved.")
         pending["awaiting_proof"] = False
+
+@bot.message_handler(content_types=['video', 'document', 'audio', 'voice', 'animation'])
+def handle_other_media(message):
+    user_id = message.from_user.id
+    step_info = USER_STEPS.get(user_id)
+    if user_id == ADMIN_ID and step_info and step_info.get("step") == "awaiting_allp_broadcast":
+        del USER_STEPS[ADMIN_ID]
+        broadcast_copy(message)
+
+def broadcast_copy(source_message):
+    data = load_data()
+    users = list(data["users"].keys())
+    sent = 0
+    progress_msg = bot.send_message(ADMIN_ID, f"⏳ Broadcasting to {len(users)} users...")
+
+    for uid in users:
+        try:
+            bot.copy_message(
+                chat_id=int(uid),
+                from_chat_id=source_message.chat.id,
+                message_id=source_message.message_id
+            )
+            sent += 1
+            time.sleep(0.04)
+        except Exception:
+            pass
+
+    bot.edit_message_text(
+        f"✅ *Broadcast Completed!*\nSuccessfully delivered to *{sent}/{len(users)}* users.",
+        chat_id=ADMIN_ID,
+        message_id=progress_msg.message_id,
+        parse_mode="Markdown"
+    )
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("adm_app_"))
 def admin_approve_payment(call):
@@ -366,6 +440,11 @@ def handle_text_steps(message):
     text = message.text.strip()
     step_info = USER_STEPS.get(user_id)
 
+    if user_id == ADMIN_ID and step_info and step_info.get("step") == "awaiting_allp_broadcast":
+        del USER_STEPS[ADMIN_ID]
+        broadcast_copy(message)
+        return
+
     if not step_info:
         return
 
@@ -412,7 +491,7 @@ def handle_text_steps(message):
                 f"Your balance: *{user_credits} Credits*\n\n"
                 "Please buy credits or refer friends to continue."
             )
-            bot.send_message(message.chat.id, err_msg, reply_markup=main_menu_markup(), parse_mode="Markdown")
+            bot.send_message(message.chat.id, err_msg, reply_markup=user_keyboard(user_id), parse_mode="Markdown")
             return
 
         data["users"][user_id_str]["credits"] -= required_credits
@@ -558,27 +637,6 @@ def admin_rem_credit(message):
         data["users"][target_id]["credits"] = max(0, data["users"][target_id]["credits"] - amount)
         save_data(data)
         bot.reply_to(message, f"✅ Deducted {amount} credits from `{target_id}`.")
-
-@bot.message_handler(commands=['broadcast'])
-def admin_broadcast(message):
-    if message.from_user.id != ADMIN_ID:
-        return
-    msg_text = message.text.replace('/broadcast', '').strip()
-    if not msg_text:
-        bot.reply_to(message, "Usage: `/broadcast Your message here`")
-        return
-
-    data = load_data()
-    users = list(data["users"].keys())
-    sent = 0
-    for uid in users:
-        try:
-            bot.send_message(int(uid), msg_text)
-            sent += 1
-            time.sleep(0.04)
-        except Exception:
-            pass
-    bot.reply_to(message, f"📢 Broadcast finished: Sent to {sent}/{len(users)} users.")
 
 @bot.message_handler(commands=['stats'])
 def admin_stats(message):
