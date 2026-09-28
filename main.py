@@ -13,7 +13,7 @@ from telebot.types import (
 from pymongo import MongoClient
 
 # ==================== CONFIGURATION ====================
-BOT_TOKEN = os.getenv("BOT_TOKEN", "8822768029:AAHfF4z7tRI22u-TXBbzv3eWfHZJ_JH4cI4")
+BOT_TOKEN = os.getenv("BOT_TOKEN", "8822768029:AAHc-X8HODwjDetxYuAT6jTcDIgR9naUkX0")
 ADMIN_ID = 8671410379
 UPI_ID = "Oxrehan11@oksbi"
 MONGO_URI = os.getenv("MONGO_URI", "mongodb+srv://oxuser11_db_user:oDdPU3xbtY80uS5C@cluster0.qmbyhm3.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0")
@@ -730,4 +730,5 @@ if __name__ == "__main__":
     print(f"[✓] Active Accounts Loaded: {len(BOT_ACCOUNTS)}")
     keep_alive()
     print("Bot is successfully running on Web Service...")
-    bot.infinity_polling()
+    bot.remove_webhook()
+    bot.infinity_polling(skip_pending=True)
