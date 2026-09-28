@@ -13,7 +13,7 @@ from telebot.types import (
 from pymongo import MongoClient
 
 # ==================== CONFIGURATION ====================
-BOT_TOKEN = os.getenv("BOT_TOKEN", "8822768029:AAHc-X8HODwjDetxYuAT6jTcDIgR9naUkX0")
+BOT_TOKEN = os.getenv("BOT_TOKEN", "8822768029:AAHVwFzRColFw8bvg8e0Eix3i8B_OLS7kZs")
 ADMIN_ID = 8671410379
 UPI_ID = "Oxrehan11@oksbi"
 MONGO_URI = os.getenv("MONGO_URI", "mongodb+srv://oxuser11_db_user:oDdPU3xbtY80uS5C@cluster0.qmbyhm3.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0")
