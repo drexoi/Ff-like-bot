@@ -2,3 +2,4 @@ pyTelegramBotAPI
 requests
 pymongo[srv]
 dnspython
+flask
